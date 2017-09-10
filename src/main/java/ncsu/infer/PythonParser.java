@@ -4,9 +4,14 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Vector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Class to parse a Python module and extract out everything that could be
@@ -18,31 +23,51 @@ import java.util.Vector;
  */
 public class PythonParser {
 
-    private final String       filename;
+    private final String       directoryName;
 
     private final List<String> constants;
     private final List<String> functions;
     private final List<String> classes;
 
-    public PythonParser ( final String filename ) {
-        this.filename = filename;
+    public PythonParser ( final String directoryName ) {
+        this.directoryName = directoryName;
 
         constants = new Vector<String>();
         functions = new Vector<String>();
         classes = new Vector<String>();
     }
 
-    public PythonParser parse () {
+    public void parseAll () {
+        try ( final Stream<Path> paths = Files.walk( Paths.get( directoryName ) ) ) {
+            final List<Path> allFiles = paths.filter( Files::isRegularFile ).collect( Collectors.toList() );
+            for ( final Path p : allFiles ) {
+                parse( p );
+            }
+        }
+        catch ( final IOException e ) {
+            e.printStackTrace();
+        }
+    }
+
+    public void parse ( final Path filename ) {
+        final String name = filename.getFileName().toString();
+        /*
+         * Skip empty files, non-Python files, initialization (?) files, and
+         * tests
+         */
+        if ( isEmpty( name ) && !name.endsWith( ".py" ) || name.contains( "init" ) || name.contains( "test" ) ) {
+            return;
+        }
         try {
 
-            final BufferedReader br = new BufferedReader( new FileReader( filename ) );
+            final BufferedReader br = new BufferedReader( new FileReader( filename.toFile() ) );
 
             String readLine;
 
             String identifier;
 
             while ( ( readLine = br.readLine() ) != null ) {
-                // System.out.println( readLine );
+                System.out.println( readLine );
                 /*
                  * Figure out how many leading spaces we have so we can see how
                  * many levels we are indented
@@ -103,12 +128,9 @@ public class PythonParser {
         catch ( final IOException ioe ) {
             ioe.printStackTrace();
         }
-
-        return this;
-
     }
 
-    public PythonParser print () {
+    public void print () {
         System.out.println( "Classes: " );
         for ( final String s : classes ) {
             System.out.print( s + "," );
@@ -124,7 +146,11 @@ public class PythonParser {
             System.out.print( s + "," );
         }
 
-        return this;
+        return;
+    }
+
+    private boolean isEmpty ( final String s ) {
+        return null == s || s.equals( "" );
     }
 
 }
